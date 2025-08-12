@@ -832,7 +832,6 @@ favoriteBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Hide context when clicking elsewhere
 screenGui.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		if contextMenu and contextMenu.Visible then
