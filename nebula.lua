@@ -55,9 +55,12 @@ local CLASS_ICONS = {
 -- Animation utilities
 local function animateScale(obj, targetScale, duration)
     duration = duration or 0.2
+    local originalSize = obj.Size
+    local targetSize = UDim2.new(originalSize.X.Scale * targetScale, originalSize.X.Offset, 
+                                originalSize.Y.Scale * targetScale, originalSize.Y.Offset)
     local tween = TweenService:Create(obj, 
         TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-        {Size = UDim2.new(targetScale, 0, targetScale, 0)}
+        {Size = targetSize}
     )
     tween:Play()
     return tween
@@ -282,6 +285,11 @@ searchBox.Font = Enum.Font.SourceSans
 searchBox.TextXAlignment = Enum.TextXAlignment.Left
 searchBox.Parent = searchFrame
 
+-- Filter variables
+local showScripts = false
+local showGUIs = false
+local showParts = false
+
 -- Filter buttons
 local filterFrame = createFrame({
     Size = UDim2.new(0, 200, 1, 0),
@@ -314,10 +322,6 @@ local function createFilterBtn(text, position, callback)
     
     return btn
 end
-
-local showScripts = false
-local showGUIs = false
-local showParts = false
 
 createFilterBtn("Scripts", 0, function(active) showScripts = active end)
 createFilterBtn("GUIs", 50, function(active) showGUIs = active end)
@@ -356,14 +360,6 @@ local leftPanel = createFrame({
     Parent = contentFrame
 })
 Instance.new("UICorner", leftPanel).CornerRadius = UDim.new(0, 8)
-
-local leftPanelGradient = Instance.new("UIGradient")
-leftPanelGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, THEME.secondary),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 40))
-})
-leftPanelGradient.Rotation = 180
-leftPanelGradient.Parent = leftPanel
 
 -- Explorer header
 local explorerHeader = createFrame({
@@ -407,14 +403,6 @@ local rightPanel = createFrame({
     Parent = contentFrame
 })
 Instance.new("UICorner", rightPanel).CornerRadius = UDim.new(0, 8)
-
-local rightPanelGradient = Instance.new("UIGradient")
-rightPanelGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, THEME.secondary),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 40))
-})
-rightPanelGradient.Rotation = 180
-rightPanelGradient.Parent = rightPanel
 
 -- Properties header
 local propsHeader = createFrame({
@@ -469,10 +457,26 @@ local statusText = createTextLabel({
     Parent = statusBar
 })
 
--- Instance management
+-- Instance management variables
 local selectedInstance
 local expandedInstances = {}
 local treeItems = {}
+
+-- Utility functions
+local function getClassIcon(className)
+    return CLASS_ICONS[className] or "📄"
+end
+
+local function passesFilter(instance)
+    if not showScripts and not showGUIs and not showParts then return true end
+    
+    local className = instance.ClassName
+    if showScripts and (className:find("Script") or className == "ModuleScript") then return true end
+    if showGUIs and (className:find("Gui") or className:find("Frame") or className:find("Label") or className:find("Button")) then return true end
+    if showParts and (className == "Part" or className == "MeshPart" or className == "UnionOperation") then return true end
+    
+    return false
+end
 
 -- Clear functions
 local function clearTree()
@@ -492,24 +496,7 @@ local function clearProps()
     end
 end
 
--- Get class icon
-local function getClassIcon(className)
-    return CLASS_ICONS[className] or "📄"
-end
-
--- Filter check
-local function passesFilter(instance)
-    if not showScripts and not showGUIs and not showParts then return true end
-    
-    local className = instance.ClassName
-    if showScripts and (className:find("Script") or className == "ModuleScript") then return true end
-    if showGUIs and (className:find("Gui") or className:find("Frame") or className:find("Label") or className:find("Button")) then return true end
-    if showParts and (className == "Part" or className == "MeshPart" or className == "UnionOperation") then return true end
-    
-    return false
-end
-
--- Enhanced property display
+-- Properties display function
 local function showProperties(instance)
     clearProps()
     if not instance then
@@ -543,7 +530,7 @@ local function showProperties(instance)
             Parent = sectionHeader
         })
         
-        yPos += 30
+        yPos = yPos + 30
         
         -- Properties
         for name, value in pairs(properties) do
@@ -582,10 +569,10 @@ local function showProperties(instance)
                 Parent = propFrame
             })
             
-            yPos += 26
+            yPos = yPos + 26
         end
         
-        yPos += 10
+        yPos = yPos + 10
     end
 
     -- Basic properties
@@ -619,7 +606,7 @@ local function showProperties(instance)
     propsScroll.CanvasSize = UDim2.new(0, 0, 0, yPos)
 end
 
--- Enhanced tree building
+-- Tree item creation
 local function addTreeItem(parent, instance, depth, yPos)
     local indent = depth * 20
     local isExpanded = expandedInstances[instance]
@@ -650,7 +637,7 @@ local function addTreeItem(parent, instance, depth, yPos)
         
         trackConnection(expandBtn.MouseButton1Click:Connect(function()
             expandedInstances[instance] = not isExpanded
-            buildTree()
+            buildTree() -- This will be defined later
         end))
     end
     
@@ -703,7 +690,7 @@ local function addTreeItem(parent, instance, depth, yPos)
     
     itemFrame.Button = btn
     table.insert(treeItems, itemFrame)
-    yPos += 24
+    yPos = yPos + 24
     
     -- Add children if expanded
     if isExpanded and hasChildren then
@@ -722,7 +709,7 @@ local function addTreeItem(parent, instance, depth, yPos)
     return yPos
 end
 
--- Build tree function
+-- Build tree function - NOW PROPERLY DEFINED
 function buildTree()
     clearTree()
     local yPos = 5
@@ -771,7 +758,7 @@ function buildTree()
         end))
         
         table.insert(treeItems, serviceFrame)
-        yPos += 30
+        yPos = yPos + 30
         
         -- Add service children if expanded
         if serviceData.expanded then
@@ -783,7 +770,7 @@ function buildTree()
                     yPos = addTreeItem(treeScroll, child, 1, yPos)
                 end
             end
-            yPos += 5
+            yPos = yPos + 5
         end
     end
     
@@ -849,7 +836,7 @@ local function performSearch(query)
             end))
             
             table.insert(treeItems, resultFrame)
-            yPos += 28
+            yPos = yPos + 28
         end
     end
     
@@ -866,7 +853,7 @@ local function performSearch(query)
             Parent = treeScroll
         })
         table.insert(treeItems, noResults)
-        yPos += 35
+        yPos = yPos + 35
     end
     
     treeScroll.CanvasSize = UDim2.new(0, 0, 0, math.max(yPos, 100))
@@ -879,9 +866,11 @@ trackConnection(searchBox:GetPropertyChangedSignal("Text"):Connect(function()
     if searchDebounce then return end
     searchDebounce = true
     
-    task.wait(0.3) -- Debounce search
-    performSearch(searchBox.Text)
-    searchDebounce = false
+    task.spawn(function()
+        task.wait(0.3) -- Debounce search
+        performSearch(searchBox.Text)
+        searchDebounce = false
+    end)
 end))
 
 -- Window dragging with smooth animation
@@ -990,12 +979,21 @@ for _, btn in ipairs(buttons) do
             math.min(originalColor.G + 0.1, 1),
             math.min(originalColor.B + 0.1, 1)
         ))
-        animateScale(btn, 1.05)
+        -- Fixed scale animation
+        local tween = TweenService:Create(btn,
+            TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(btn.Size.X.Scale * 1.05, btn.Size.X.Offset, btn.Size.Y.Scale * 1.05, btn.Size.Y.Offset)}
+        )
+        tween:Play()
     end))
     
     trackConnection(btn.MouseLeave:Connect(function()
         animateColor(btn, originalColor)
-        animateScale(btn, 1)
+        local tween = TweenService:Create(btn,
+            TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Size = UDim2.new(btn.Size.X.Scale / 1.05, btn.Size.X.Offset, btn.Size.Y.Scale / 1.05, btn.Size.Y.Offset)}
+        )
+        tween:Play()
     end))
 end
 
@@ -1010,7 +1008,7 @@ trackConnection(refreshBtn.MouseButton1Click:Connect(function()
     
     refreshTween.Completed:Connect(function()
         refreshBtn.Rotation = 0
-    end))
+    end)
     
     -- Clear search and rebuild
     searchBox.Text = ""
